@@ -7,6 +7,7 @@ spark = SparkSession.builder.appName("my-app").getOrCreate()
 spark.sql("SELECT 1").show()
 
 # COMMAND ----------
+
 # Config: update these for your workspace/catalog naming standards.
 SOURCE_PATH = "/Volumes/students_data/team3-chicago/files/Food_Inspections.csv"
 CATALOG = "students_data"
@@ -14,11 +15,7 @@ SCHEMA = "team3-chicago"
 BRONZE_TABLE = f"{CATALOG}.{SCHEMA}.food_inspections_bronze"
 
 # COMMAND ----------
-# Ensure target catalog/schema exist.
-spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {CATALOG}.{SCHEMA}")
 
-# COMMAND ----------
 # Read source CSV from Databricks Volume.
 raw_df = (
     spark.read.option("header", "true").option("inferSchema", "true").csv(SOURCE_PATH)
@@ -34,16 +31,8 @@ bronze_df = raw_df.withColumn("_ingested_at", F.current_timestamp()).withColumn(
     bronze_df.write.format("delta")
     .mode("overwrite")
     .option("overwriteSchema", "true")
-    .saveAsTable(BRONZE_TABLE)
+    .option("delta.columnMapping.mode", "name")
+    .saveAsTable(f"`{CATALOG}`.`{SCHEMA}`.food_inspections_bronze")
 )
 
 print(f"Bronze table written: {BRONZE_TABLE}")
-
-# COMMAND ----------
-# Minimal silver transformation example.
-# Adjust these columns if your source header differs.
-
-
-# COMMAND ----------
-# Quick checks
-spark.sql(f"SELECT COUNT(*) AS row_count FROM {BRONZE_TABLE}").show()
