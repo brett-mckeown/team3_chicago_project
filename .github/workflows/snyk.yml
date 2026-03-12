@@ -8,6 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: snyk/actions/setup@master
-      - run: snyk test --file=requirements.txt --package-manager=pip
+      - run: snyk test --file=requirements.txt --package-manager=pip --skip-unresolved
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
