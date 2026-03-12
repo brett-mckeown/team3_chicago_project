@@ -1,0 +1,8 @@
+pyspark
+delta-spark
+great_expectations
+black
+flake8
+pre-commit
+detect-secrets
+gitleaks
