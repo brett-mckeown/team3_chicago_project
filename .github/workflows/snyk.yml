@@ -26,4 +26,4 @@ jobs:
 
       - name: Monitor project in Snyk
         if: github.event_name == 'push'
-        run: snyk monitor --file=requirements.txt --package-manager=pip
+        run: snyk monitor --file=requirements.txt --package-manager=pip --skip-unresolved
