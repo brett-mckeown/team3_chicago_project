@@ -34,5 +34,3 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: monitor --all-projects
-
-          
