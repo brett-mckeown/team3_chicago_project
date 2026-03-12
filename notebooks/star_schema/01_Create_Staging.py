@@ -1,12 +1,12 @@
 # Databricks notebook source
 # COMMAND ----------
-spark = SparkSession.builder.getOrCreate()
-
-spark.sql("USE CATALOG students_data")
-spark.sql("USE SCHEMA team3-chicago")
+%sql
+USE CATALOG students_data;
+USE SCHEMA team3-chicago;
 
 # COMMAND ----------
-spark.sql("""
+
+%sql
 CREATE OR REPLACE TABLE stg_location AS
 SELECT
     location_id,
@@ -24,10 +24,10 @@ SELECT
     location
 FROM 
     students_data.team3-chicago.food_inspections_bronze
-""")
 
 # COMMAND ----------
-spark.sql("""
+
+%sql
 CREATE OR REPLACE TABLE stg_inspection AS
 SELECT
     inspection_id,
@@ -38,5 +38,9 @@ SELECT
     violations
 FROM 
     students_data.team3-chicago.food_inspections_bronze
-""")
+
 # COMMAND ----------
+
+
+
+
