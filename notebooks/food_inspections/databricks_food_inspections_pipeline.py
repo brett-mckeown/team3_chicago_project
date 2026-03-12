@@ -17,14 +17,10 @@ BRONZE_TABLE = f"{CATALOG}.{SCHEMA}.food_inspections_bronze"
 # COMMAND ----------
 
 # Read source CSV from Databricks Volume.
-raw_df = (
-    spark.read.option("header", "true").option("inferSchema", "true").csv(SOURCE_PATH)
-)
+raw_df = spark.read.option("header", "true").option("inferSchema", "true").csv(SOURCE_PATH)
 
 # Basic ingestion metadata for lineage.
-bronze_df = raw_df.withColumn("_ingested_at", F.current_timestamp()).withColumn(
-    "_source_path", F.lit(SOURCE_PATH)
-)
+bronze_df = raw_df.withColumn("_ingested_at", F.current_timestamp()).withColumn("_source_path", F.lit(SOURCE_PATH))
 
 # Write bronze table.
 (
