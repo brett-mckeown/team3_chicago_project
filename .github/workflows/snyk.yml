@@ -1,14 +1,36 @@
-name: Snyk Scan
+name: Snyk Security Scan
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
 
 jobs:
   snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' }}
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: snyk/actions/setup@master
-      - run: snyk test --file=requirements.txt --package-manager=pip --skip-unresolved
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || true
+
+      - name: Run Snyk test
+        uses: snyk/actions/python@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: test --all-projects
+
+      - name: Monitor project in Snyk
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: monitor --all-projects
