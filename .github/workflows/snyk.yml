@@ -6,6 +6,7 @@ jobs:
   snyk:
     runs-on: ubuntu-latest
     steps:
+      - run: pip install -r requirements.txt
       - uses: actions/checkout@v3
       - uses: snyk/actions/setup@master
       - run: snyk test --all-projects
