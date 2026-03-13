@@ -209,12 +209,40 @@
 # MAGIC );
 # MAGIC
 # MAGIC INSERT INTO DimBusiness (dba_name, aka_name, license_number)
-# MAGIC SELECT
-# MAGIC   dba_name,
-# MAGIC   aka_name,
-# MAGIC   license_number
-# MAGIC FROM
-# MAGIC   students_data.`team3-chicago`.stg_location;
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     /* Clean DBA name */
+# MAGIC     CASE
+# MAGIC       WHEN trim(dba_name) = '' THEN NULL
+# MAGIC       ELSE initcap(trim(dba_name))
+# MAGIC     END AS dba_name_clean,
+# MAGIC
+# MAGIC     /* Clean AKA name */
+# MAGIC     CASE
+# MAGIC       WHEN trim(aka_name) = '' THEN NULL
+# MAGIC       ELSE initcap(trim(aka_name))
+# MAGIC     END AS aka_name_clean,
+# MAGIC
+# MAGIC     /* Clean license number */
+# MAGIC     CASE
+# MAGIC       WHEN trim(license_number) = '' THEN NULL
+# MAGIC       ELSE trim(license_number)
+# MAGIC     END AS license_number_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_location
+# MAGIC ),
+# MAGIC validated AS (
+# MAGIC   SELECT
+# MAGIC     dba_name_clean,
+# MAGIC     aka_name_clean,
+# MAGIC     license_number_clean
+# MAGIC   FROM cleaned
+# MAGIC   WHERE license_number_clean IS NOT NULL
+# MAGIC )
+# MAGIC SELECT DISTINCT
+# MAGIC   dba_name_clean,
+# MAGIC   aka_name_clean,
+# MAGIC   license_number_clean
+# MAGIC FROM validated;
 
 # COMMAND ----------
 
