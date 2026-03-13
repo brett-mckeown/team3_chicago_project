@@ -10,13 +10,10 @@
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimLocation (
 # MAGIC   d_location_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
-# MAGIC   license_number STRING NOT NULL,
 # MAGIC   address STRING,
 # MAGIC   city STRING,
 # MAGIC   state STRING,
 # MAGIC   zip STRING,
-# MAGIC   latitude DOUBLE,  
-# MAGIC   longitude DOUBLE,
 # MAGIC   CONSTRAINT pk_location PRIMARY KEY (d_location_id)
 # MAGIC );
 # MAGIC
@@ -38,8 +35,7 @@
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimFacilityType (
 # MAGIC   d_facility_type_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
-# MAGIC   facility_type_raw STRING NOT NULL,
-# MAGIC   facility_type STRING NOT NULL,
+# MAGIC   facility_type STRING,
 # MAGIC   CONSTRAINT pk_facility_type PRIMARY KEY (d_facility_type_id)
 # MAGIC );
 # MAGIC
@@ -71,10 +67,8 @@
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimRisk (
 # MAGIC   d_risk_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
-# MAGIC   risk_raw STRING NOT NULL,
 # MAGIC   risk_category STRING NOT NULL,
-# MAGIC   CONSTRAINT pk_risk PRIMARY KEY (d_risk_id),
-# MAGIC   CONSTRAINT risk_category_check CHECK (risk_category IN ('Risk 1','Risk 2','Risk 3','Unknown'))
+# MAGIC   CONSTRAINT pk_risk PRIMARY KEY (d_risk_id)
 # MAGIC );
 # MAGIC
 # MAGIC INSERT INTO DimRisk (risk_raw, risk_category)
@@ -96,7 +90,7 @@
 # MAGIC   d_business_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
 # MAGIC   dba_name STRING,
 # MAGIC   aka_name STRING,
-# MAGIC   license_number STRING NOT NULL,
+# MAGIC   license_number STRING,
 # MAGIC   CONSTRAINT pk_business PRIMARY KEY (d_business_id)
 # MAGIC );
 # MAGIC
@@ -114,10 +108,6 @@
 # MAGIC CREATE OR REPLACE TABLE DimDate (
 # MAGIC   d_date_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
 # MAGIC   date DATE NOT NULL,
-# MAGIC   year INT,
-# MAGIC   month INT,
-# MAGIC   day INT,
-# MAGIC   day_of_week STRING,
 # MAGIC   CONSTRAINT pk_date PRIMARY KEY (d_date_id)
 # MAGIC );
 # MAGIC
@@ -141,7 +131,8 @@
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimViolation (
 # MAGIC   d_violation_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
-# MAGIC   violation_code STRING NOT NULL,
+# MAGIC   violation_code STRING,
+# MAGIC   comment STRING,
 # MAGIC   CONSTRAINT pk_violation PRIMARY KEY (d_violation_id)
 # MAGIC );
 # MAGIC
