@@ -7,7 +7,8 @@
 # MAGIC USE SCHEMA `team3-chicago`;
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- DIM LOCATION (FIXED: add license_number as natural key)
+# MAGIC -- DIM LOCATION
+# MAGIC -- Natural key: (address, city, state, zip)
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimLocation (
 # MAGIC   d_location_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
@@ -18,24 +19,22 @@
 # MAGIC   CONSTRAINT pk_location PRIMARY KEY (d_location_id)
 # MAGIC );
 # MAGIC
-# MAGIC INSERT INTO DimLocation (license_number, address, city, state, zip)
+# MAGIC INSERT INTO DimLocation (address, city, state, zip)
 # MAGIC SELECT DISTINCT
-# MAGIC   trim(license_number) AS license_number,
 # MAGIC   REGEXP_REPLACE(initcap(trim(address)), '\\bSt\\.?\\b', 'Street') AS address,
 # MAGIC   'Chicago' AS city,
 # MAGIC   'IL' AS state,
 # MAGIC   regexp_extract(zip, '([0-9]{5})', 1) AS zip
 # MAGIC FROM students_data.`team3-chicago`.stg_location
-# MAGIC WHERE license_number IS NOT NULL
-# MAGIC   AND regexp_extract(zip, '([0-9]{5})', 1) IS NOT NULL;
-# MAGIC   AND latitude IS NOT NULL
-# MAGIC   AND longitude IS NOT NULL;
+# MAGIC WHERE regexp_extract(zip, '([0-9]{5})', 1) IS NOT NULL;
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- DIM FACILITY TYPE (FIXED: preserve raw + cleaned value)
+# MAGIC -- DIM FACILITY TYPE
+# MAGIC -- Natural key: facility_type_raw
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimFacilityType (
 # MAGIC   d_facility_type_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   facility_type_raw STRING,
 # MAGIC   facility_type STRING,
 # MAGIC   CONSTRAINT pk_facility_type PRIMARY KEY (d_facility_type_id)
 # MAGIC );
@@ -64,10 +63,12 @@
 # MAGIC WHERE facility_type IS NOT NULL;
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- DIM RISK (FIXED: preserve raw + cleaned value)
+# MAGIC -- DIM RISK
+# MAGIC -- Natural key: risk_raw
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimRisk (
 # MAGIC   d_risk_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   risk_raw STRING,
 # MAGIC   risk_category STRING NOT NULL,
 # MAGIC   CONSTRAINT pk_risk PRIMARY KEY (d_risk_id)
 # MAGIC );
@@ -85,7 +86,8 @@
 # MAGIC FROM students_data.`team3-chicago`.stg_location;
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- DIM BUSINESS (MINOR HARDENING)
+# MAGIC -- DIM BUSINESS
+# MAGIC -- Natural key: (license_number, dba_name, aka_name)
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimBusiness (
 # MAGIC   d_business_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
@@ -104,11 +106,16 @@
 # MAGIC WHERE license_number IS NOT NULL;
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- DIM DATE (FIXED: real date dimension)
+# MAGIC -- DIM DATE
+# MAGIC -- Natural key: date
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimDate (
 # MAGIC   d_date_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
 # MAGIC   date DATE NOT NULL,
+# MAGIC   year INT,
+# MAGIC   month INT,
+# MAGIC   day INT,
+# MAGIC   day_of_week STRING,
 # MAGIC   CONSTRAINT pk_date PRIMARY KEY (d_date_id)
 # MAGIC );
 # MAGIC
@@ -128,19 +135,27 @@
 # MAGIC   AND d <= current_date();
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- DIM VIOLATION (FIXED: one row per violation code)
+# MAGIC -- DIM VIOLATION
+# MAGIC -- Natural key: (violation_code, violation_description)
+# MAGIC -- Violation format: "{code}. {description} - Comments: {comment}"
+# MAGIC -- Multiple violations separated by | in stg_inspection.violations
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimViolation (
 # MAGIC   d_violation_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
 # MAGIC   violation_code STRING,
-# MAGIC   comment STRING,
+# MAGIC   violation_description STRING,
 # MAGIC   CONSTRAINT pk_violation PRIMARY KEY (d_violation_id)
 # MAGIC );
 # MAGIC
-# MAGIC INSERT INTO DimViolation (violation_code)
+# MAGIC INSERT INTO DimViolation (violation_code, violation_description)
 # MAGIC SELECT DISTINCT
-# MAGIC   trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) AS violation_code
-# MAGIC FROM students_data.`team3-chicago`.stg_inspection
-# MAGIC LATERAL VIEW explode(split(violations, '\\|')) viol AS single_violation
-# MAGIC WHERE violations IS NOT NULL
-# MAGIC   AND trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) != '';
+# MAGIC   trim(regexp_extract(cleaned, '^(\\d+)\\.', 1)) AS violation_code,
+# MAGIC   trim(regexp_extract(cleaned, '^\\d+\\.\\s*(.+?)\\s*-\\s*Comments:', 1)) AS violation_description
+# MAGIC FROM (
+# MAGIC   SELECT trim(BOTH '"' FROM trim(single_violation)) AS cleaned
+# MAGIC   FROM students_data.`team3-chicago`.stg_inspection
+# MAGIC   LATERAL VIEW explode(split(violations, '[|]')) viol AS single_violation
+# MAGIC   WHERE violations IS NOT NULL
+# MAGIC     AND length(trim(single_violation)) > 5
+# MAGIC )
+# MAGIC WHERE trim(regexp_extract(cleaned, '^(\\d+)\\.', 1)) != '';
