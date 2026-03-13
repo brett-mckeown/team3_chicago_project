@@ -25,7 +25,7 @@
 # MAGIC );
 # MAGIC
 # MAGIC -- =====================================================
-# MAGIC -- LOAD FACT INSPECTION (DIM LOOKUPS ONLY)
+# MAGIC -- LOAD FACT INSPECTION
 # MAGIC -- =====================================================
 # MAGIC INSERT INTO FactInspection (
 # MAGIC   d_business_id,
@@ -47,43 +47,65 @@
 # MAGIC   i.inspection_id,
 # MAGIC   i.inspection_type,
 # MAGIC   i.results,
-# MAGIC   i.score
+# MAGIC   CAST(NULL AS INT)
 # MAGIC FROM students_data.`team3-chicago`.stg_inspection i
 # MAGIC JOIN students_data.`team3-chicago`.stg_location sl
-# MAGIC   ON i.license_number = sl.license_number
+# MAGIC   ON sl.inspection_id = i.inspection_id
 # MAGIC JOIN DimBusiness b
-# MAGIC   ON b.license_number = sl.license_number
+# MAGIC   ON b.license_number = trim(sl.license_number)
+# MAGIC   AND b.dba_name <=> initcap(trim(sl.dba_name))
+# MAGIC   AND b.aka_name <=> initcap(trim(sl.aka_name))
 # MAGIC JOIN DimLocation l
-# MAGIC   ON l.license_number = sl.license_number
+# MAGIC   ON l.address = REGEXP_REPLACE(initcap(trim(sl.address)), '\\bSt\\.?\\b', 'Street')
+# MAGIC   AND l.zip = regexp_extract(sl.zip, '([0-9]{5})', 1)
 # MAGIC JOIN DimFacilityType ft
 # MAGIC   ON ft.facility_type_raw = sl.facility_type
 # MAGIC JOIN DimRisk r
-# MAGIC   ON r.risk_raw = sl.risk
+# MAGIC   ON r.risk_raw <=> sl.risk
 # MAGIC JOIN DimDate d
-# MAGIC   ON d.date = TRY_CAST(i.inspection_date AS DATE);
+# MAGIC   ON d.date = i.inspection_date;
 # MAGIC
 # MAGIC -- =====================================================
 # MAGIC -- FACT INSPECTION VIOLATION (BRIDGE TABLE)
 # MAGIC -- Grain: ONE ROW PER (INSPECTION, VIOLATION)
+# MAGIC -- Stores the business-specific comment per violation
 # MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE FactInspectionViolation (
 # MAGIC   f_inspection_id BIGINT NOT NULL,
 # MAGIC   d_violation_id BIGINT NOT NULL,
+# MAGIC   comment STRING,
 # MAGIC   CONSTRAINT pk_factinspectionviolation PRIMARY KEY (f_inspection_id, d_violation_id)
 # MAGIC );
 # MAGIC
 # MAGIC -- =====================================================
 # MAGIC -- LOAD FACT INSPECTION VIOLATION
+# MAGIC -- Parses each violation: code, description, and comment
+# MAGIC -- Joins DimViolation on (code, description)
 # MAGIC -- =====================================================
-# MAGIC INSERT INTO FactInspectionViolation (f_inspection_id, d_violation_id)
+# MAGIC INSERT INTO FactInspectionViolation (f_inspection_id, d_violation_id, comment)
 # MAGIC SELECT DISTINCT
-# MAGIC   f.f_inspection_id,
-# MAGIC   v.d_violation_id
-# MAGIC FROM students_data.`team3-chicago`.stg_inspection i
-# MAGIC JOIN FactInspection f
-# MAGIC   ON f.inspection_id = i.inspection_id
-# MAGIC LATERAL VIEW explode(split(i.violations, '\\|')) viol AS single_violation
+# MAGIC   expanded.f_inspection_id,
+# MAGIC   v.d_violation_id,
+# MAGIC   expanded.comment
+# MAGIC FROM (
+# MAGIC   SELECT
+# MAGIC     f_inspection_id,
+# MAGIC     trim(regexp_extract(cleaned, '^(\\d+)\\.', 1)) AS violation_code,
+# MAGIC     trim(regexp_extract(cleaned, '^\\d+\\.\\s*(.+?)\\s*-\\s*Comments:', 1)) AS violation_description,
+# MAGIC     trim(regexp_extract(cleaned, '-\\s*Comments:\\s*(.*)', 1)) AS comment
+# MAGIC   FROM (
+# MAGIC     SELECT
+# MAGIC       f.f_inspection_id,
+# MAGIC       trim(BOTH '"' FROM trim(single_violation)) AS cleaned
+# MAGIC     FROM students_data.`team3-chicago`.stg_inspection i
+# MAGIC     JOIN FactInspection f
+# MAGIC       ON f.inspection_id = i.inspection_id
+# MAGIC     LATERAL VIEW explode(split(i.violations, '[|]')) viol AS single_violation
+# MAGIC     WHERE i.violations IS NOT NULL
+# MAGIC       AND length(trim(single_violation)) > 5
+# MAGIC   )
+# MAGIC ) expanded
 # MAGIC JOIN DimViolation v
-# MAGIC   ON v.violation_code = trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1))
-# MAGIC WHERE i.violations IS NOT NULL
-# MAGIC   AND trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) != '';
+# MAGIC   ON v.violation_code = expanded.violation_code
+# MAGIC   AND v.violation_description = expanded.violation_description
+# MAGIC WHERE expanded.violation_code != '';
