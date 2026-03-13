@@ -51,30 +51,55 @@
 
 # MAGIC %sql
 # MAGIC INSERT INTO DimLocation (address, city, state, zip)
-# MAGIC WITH cleaned AS (
+# MAGIC WITH base AS (
 # MAGIC   SELECT
-# MAGIC     initcap(trim(address)) AS address_clean,
-# MAGIC     initcap(trim(city)) AS city_clean,
-# MAGIC     CASE
-# MAGIC       WHEN upper(trim(state)) = 'IL' THEN 'IL'
-# MAGIC       ELSE NULL
-# MAGIC     END AS state_clean,
-# MAGIC     regexp_extract(zip, '([0-9]{5})', 1) AS zip_clean
+# MAGIC     initcap(trim(address)) AS address_raw,
+# MAGIC     initcap(trim(city)) AS city_raw,
+# MAGIC     upper(trim(state)) AS state_raw,
+# MAGIC     regexp_extract(zip, '([0-9]{5})', 1) AS zip_raw
 # MAGIC   FROM students_data.`team3-chicago`.stg_location
 # MAGIC ),
-# MAGIC validated AS (
+# MAGIC
+# MAGIC normalized AS (
 # MAGIC   SELECT
-# MAGIC     address_clean,
-# MAGIC     city_clean,
-# MAGIC     state_clean,
-# MAGIC     zip_clean
-# MAGIC   FROM cleaned
+# MAGIC     /* Standardize common street suffixes */
+# MAGIC     REGEXP_REPLACE(address_raw, '\\bSt\\.?\\b', 'Street') AS address_step1,
+# MAGIC     REGEXP_REPLACE(address_raw, '\\bAve\\.?\\b', 'Avenue') AS address_step2,
+# MAGIC     REGEXP_REPLACE(address_raw, '\\bRd\\.?\\b', 'Road') AS address_step3,
+# MAGIC     REGEXP_REPLACE(address_raw, '\\bBlvd\\.?\\b', 'Boulevard') AS address_step4,
+# MAGIC
+# MAGIC     REGEXP_REPLACE(city_raw, '\\s+', ' ') AS city_step1,
+# MAGIC     state_raw AS state_step1,
+# MAGIC     zip_raw
+# MAGIC   FROM base
+# MAGIC ),
+# MAGIC
+# MAGIC corrected AS (
+# MAGIC   SELECT
+# MAGIC     /* Apply spelling corrections if lookup table exists */
+# MAGIC     COALESCE(
+# MAGIC       REPLACE(address_step1, sc.wrong, sc.correct),
+# MAGIC       address_step1
+# MAGIC     ) AS address_clean,
+# MAGIC
+# MAGIC     CASE WHEN lower(city_step1) LIKE '%chicago%' THEN 'Chicago' ELSE NULL END AS city_clean,
+# MAGIC     CASE WHEN state_step1 = 'IL' THEN 'IL' ELSE NULL END AS state_clean,
+# MAGIC     zip_raw AS zip_clean
+# MAGIC   FROM normalized n
+# MAGIC   LEFT JOIN street_corrections sc
+# MAGIC     ON n.address_step1 LIKE CONCAT('%', sc.wrong, '%')
+# MAGIC ),
+# MAGIC
+# MAGIC validated AS (
+# MAGIC   SELECT *
+# MAGIC   FROM corrected
 # MAGIC   WHERE address_clean IS NOT NULL
 # MAGIC     AND city_clean IS NOT NULL
 # MAGIC     AND state_clean IS NOT NULL
 # MAGIC     AND zip_clean IS NOT NULL
 # MAGIC     AND length(zip_clean) = 5
 # MAGIC )
+# MAGIC
 # MAGIC SELECT DISTINCT address_clean, city_clean, state_clean, zip_clean
 # MAGIC FROM validated;
 
