@@ -26,16 +26,64 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC INSERT INTO DimFacilityType (facility_type)
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     CASE
+# MAGIC       WHEN lower(facility_type) RLIKE 'restaurant|rest/|cafe|coffee|bakery|banquet|catering|deli|juice|smoothie|donut|sushi|protein|tea|food booth|food hall|kitchen|dining|hot dog|ice cream|gelato|popcorn|snack|tasting' THEN 'Food Service'
+# MAGIC       WHEN lower(facility_type) RLIKE 'grocery|convenience|dollar|drug store|butcher|meat market|produce|health food|candy|general store|retail food|packaged|market' THEN 'Retail Food'
+# MAGIC       WHEN lower(facility_type) RLIKE 'tavern|bar|liquor|tap room|wine' THEN 'Alcohol Service'
+# MAGIC       WHEN lower(facility_type) RLIKE 'mobile|truck|pushcart|cart|vending|frozen dessert' THEN 'Mobile Food Vendor'
+# MAGIC       WHEN lower(facility_type) RLIKE 'school|college|university|classroom|teaching|culinary school' THEN 'School / Educational Facility'
+# MAGIC       WHEN lower(facility_type) RLIKE 'day care|daycare|after school|children|boys and girls club|kids' THEN 'Childcare Facility'
+# MAGIC       WHEN lower(facility_type) RLIKE 'nursing home|long term care|assisted living|hospital|rehab|adult day' THEN 'Healthcare / Long-Term Care'
+# MAGIC       WHEN lower(facility_type) RLIKE 'church|pantry|soup kitchen|shelter|community|non-profit|charity' THEN 'Religious / Community Facility'
+# MAGIC       WHEN lower(facility_type) RLIKE 'clothing|cell phone|book store|furniture|gift shop|video store|hair salon|nail shop|spa|tobacco|store$' THEN 'Retail (Non-Food)'
+# MAGIC       WHEN lower(facility_type) RLIKE 'gym|fitness|studio|golf|bowling|stadium|youth housing' THEN 'Fitness / Recreation'
+# MAGIC       WHEN lower(facility_type) RLIKE 'commissary|warehouse|storage|distribution|cold storage' THEN 'Commissary / Warehouse'
+# MAGIC       WHEN lower(facility_type) RLIKE 'poultry|slaughter|meat packing|butcher' THEN 'Meat / Poultry Processing'
+# MAGIC       WHEN lower(facility_type) RLIKE 'theater|theatre|music venue|event|concert|wrigley|museum|gallery' THEN 'Entertainment Venue'
+# MAGIC       WHEN lower(facility_type) RLIKE 'hotel|hostel|room service|lounge' THEN 'Hotel / Lodging'
+# MAGIC       WHEN facility_type IS NULL OR trim(facility_type) = '' THEN 'Unknown / Other'
+# MAGIC       ELSE 'Unknown / Other'
+# MAGIC     END AS facility_type_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_location
+# MAGIC )
+# MAGIC SELECT DISTINCT facility_type_clean
+# MAGIC FROM cleaned;
+
+# MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimFacilityType (
 # MAGIC   d_facility_type_id BIGINT GENERATED ALWAYS AS IDENTITY,
 # MAGIC   facility_type STRING
 # MAGIC );
 # MAGIC
+# MAGIC %sql
 # MAGIC INSERT INTO DimFacilityType (facility_type)
-# MAGIC SELECT
-# MAGIC   facility_type
-# MAGIC FROM
-# MAGIC   students_data.`team3-chicago`.stg_location;
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     CASE
+# MAGIC       WHEN lower(facility_type) RLIKE 'restaurant|rest/|cafe|coffee|bakery|banquet|catering|deli|juice|smoothie|donut|sushi|protein|tea|food booth|food hall|kitchen|dining|hot dog|ice cream|gelato|popcorn|snack|tasting' THEN 'Food Service'
+# MAGIC       WHEN lower(facility_type) RLIKE 'grocery|convenience|dollar|drug store|butcher|meat market|produce|health food|candy|general store|retail food|packaged|market' THEN 'Retail Food'
+# MAGIC       WHEN lower(facility_type) RLIKE 'tavern|bar|liquor|tap room|wine' THEN 'Alcohol Service'
+# MAGIC       WHEN lower(facility_type) RLIKE 'mobile|truck|pushcart|cart|vending|frozen dessert' THEN 'Mobile Food Vendor'
+# MAGIC       WHEN lower(facility_type) RLIKE 'school|college|university|classroom|teaching|culinary school' THEN 'School / Educational Facility'
+# MAGIC       WHEN lower(facility_type) RLIKE 'day care|daycare|after school|children|boys and girls club|kids' THEN 'Childcare Facility'
+# MAGIC       WHEN lower(facility_type) RLIKE 'nursing home|long term care|assisted living|hospital|rehab|adult day' THEN 'Healthcare / Long-Term Care'
+# MAGIC       WHEN lower(facility_type) RLIKE 'church|pantry|soup kitchen|shelter|community|non-profit|charity' THEN 'Religious / Community Facility'
+# MAGIC       WHEN lower(facility_type) RLIKE 'clothing|cell phone|book store|furniture|gift shop|video store|hair salon|nail shop|spa|tobacco|store$' THEN 'Retail (Non-Food)'
+# MAGIC       WHEN lower(facility_type) RLIKE 'gym|fitness|studio|golf|bowling|stadium|youth housing' THEN 'Fitness / Recreation'
+# MAGIC       WHEN lower(facility_type) RLIKE 'commissary|warehouse|storage|distribution|cold storage' THEN 'Commissary / Warehouse'
+# MAGIC       WHEN lower(facility_type) RLIKE 'poultry|slaughter|meat packing|butcher' THEN 'Meat / Poultry Processing'
+# MAGIC       WHEN lower(facility_type) RLIKE 'theater|theatre|music venue|event|concert|wrigley|museum|gallery' THEN 'Entertainment Venue'
+# MAGIC       WHEN lower(facility_type) RLIKE 'hotel|hostel|room service|lounge' THEN 'Hotel / Lodging'
+# MAGIC       WHEN facility_type IS NULL OR trim(facility_type) = '' THEN 'Unknown / Other'
+# MAGIC       ELSE 'Unknown / Other'
+# MAGIC     END AS facility_type_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_location
+# MAGIC )
+# MAGIC SELECT DISTINCT facility_type_clean
+# MAGIC FROM cleaned;
 
 # COMMAND ----------
 
