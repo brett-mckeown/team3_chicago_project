@@ -1,312 +1,150 @@
-# Databricks notebook source
 # MAGIC %sql
+# MAGIC -- =====================================================
+# MAGIC -- USE CATALOG & SCHEMA
+# MAGIC -- =====================================================
 # MAGIC USE CATALOG students_data;
 # MAGIC USE SCHEMA `team3-chicago`;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     /* Clean address */
-# MAGIC     initcap(trim(address)) AS address_clean,
 # MAGIC
-# MAGIC     /* Clean city */
-# MAGIC     initcap(trim(city)) AS city_clean,
-# MAGIC
-# MAGIC     /* Clean state (force IL, drop invalid) */
-# MAGIC     CASE
-# MAGIC       WHEN upper(trim(state)) = 'IL' THEN 'IL'
-# MAGIC       ELSE NULL
-# MAGIC     END AS state_clean,
-# MAGIC
-# MAGIC     /* Clean ZIP: extract first 5 digits only */
-# MAGIC     regexp_extract(zip, '([0-9]{5})', 1) AS zip_clean
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC ),
-# MAGIC validated AS (
-# MAGIC   SELECT
-# MAGIC     address_clean,
-# MAGIC     city_clean,
-# MAGIC     state_clean,
-# MAGIC     zip_clean
-# MAGIC   FROM cleaned
-# MAGIC   WHERE address_clean IS NOT NULL
-# MAGIC     AND city_clean IS NOT NULL
-# MAGIC     AND state_clean IS NOT NULL
-# MAGIC     AND zip_clean IS NOT NULL
-# MAGIC     AND length(zip_clean) = 5
-# MAGIC )
-# MAGIC SELECT DISTINCT *
-# MAGIC FROM validated;
-# MAGIC
+# MAGIC -- =====================================================
+# MAGIC -- DIM LOCATION (FIXED: add license_number as natural key)
+# MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimLocation (
-# MAGIC   d_location_id BIGINT GENERATED ALWAYS AS IDENTITY,
+# MAGIC   d_location_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   license_number STRING NOT NULL,
 # MAGIC   address STRING,
 # MAGIC   city STRING,
 # MAGIC   state STRING,
-# MAGIC   zip STRING
+# MAGIC   zip STRING,
+# MAGIC   CONSTRAINT pk_location PRIMARY KEY (d_location_id)
 # MAGIC );
 # MAGIC
-# MAGIC INSERT INTO DimLocation (address, city, state, zip)
-# MAGIC WITH base AS (
-# MAGIC   SELECT
-# MAGIC     initcap(trim(address)) AS address_raw,
-# MAGIC     initcap(trim(city)) AS city_raw,
-# MAGIC     upper(trim(state)) AS state_raw,
-# MAGIC     regexp_extract(zip, '([0-9]{5})', 1) AS zip_raw
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC ),
+# MAGIC INSERT INTO DimLocation (license_number, address, city, state, zip)
+# MAGIC SELECT DISTINCT
+# MAGIC   trim(license_number) AS license_number,
+# MAGIC   REGEXP_REPLACE(initcap(trim(address)), '\\bSt\\.?\\b', 'Street') AS address,
+# MAGIC   'Chicago' AS city,
+# MAGIC   'IL' AS state,
+# MAGIC   regexp_extract(zip, '([0-9]{5})', 1) AS zip
+# MAGIC FROM students_data.`team3-chicago`.stg_location
+# MAGIC WHERE license_number IS NOT NULL
+# MAGIC   AND regexp_extract(zip, '([0-9]{5})', 1) IS NOT NULL;
 # MAGIC
-# MAGIC normalized AS (
-# MAGIC   SELECT
-# MAGIC     /* Standardize common street suffixes */
-# MAGIC     REGEXP_REPLACE(address_raw, '\\bSt\\.?\\b', 'Street') AS address_step1,
-# MAGIC     REGEXP_REPLACE(address_raw, '\\bAve\\.?\\b', 'Avenue') AS address_step2,
-# MAGIC     REGEXP_REPLACE(address_raw, '\\bRd\\.?\\b', 'Road') AS address_step3,
-# MAGIC     REGEXP_REPLACE(address_raw, '\\bBlvd\\.?\\b', 'Boulevard') AS address_step4,
-# MAGIC
-# MAGIC     REGEXP_REPLACE(city_raw, '\\s+', ' ') AS city_step1,
-# MAGIC     state_raw AS state_step1,
-# MAGIC     zip_raw
-# MAGIC   FROM base
-# MAGIC ),
-# MAGIC
-# MAGIC corrected AS (
-# MAGIC   SELECT
-# MAGIC     /* Choose the most standardized address version */
-# MAGIC     address_step1 AS address_clean,
-# MAGIC
-# MAGIC     /* Normalize city */
-# MAGIC     CASE WHEN lower(city_step1) LIKE '%chicago%' THEN 'Chicago' ELSE NULL END AS city_clean,
-# MAGIC
-# MAGIC     /* Normalize state */
-# MAGIC     CASE WHEN state_step1 = 'IL' THEN 'IL' ELSE NULL END AS state_clean,
-# MAGIC
-# MAGIC     zip_raw AS zip_clean
-# MAGIC   FROM normalized
-# MAGIC ),
-# MAGIC
-# MAGIC validated AS (
-# MAGIC   SELECT *
-# MAGIC   FROM corrected
-# MAGIC   WHERE address_clean IS NOT NULL
-# MAGIC     AND city_clean IS NOT NULL
-# MAGIC     AND state_clean IS NOT NULL
-# MAGIC     AND zip_clean IS NOT NULL
-# MAGIC     AND length(zip_clean) = 5
-# MAGIC )
-# MAGIC
-# MAGIC SELECT DISTINCT address_clean, city_clean, state_clean, zip_clean
-# MAGIC FROM validated;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC INSERT INTO DimFacilityType (facility_type)
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     CASE
-# MAGIC       WHEN lower(facility_type) RLIKE 'restaurant|rest/|cafe|coffee|bakery|banquet|catering|deli|juice|smoothie|donut|sushi|protein|tea|food booth|food hall|kitchen|dining|hot dog|ice cream|gelato|popcorn|snack|tasting' THEN 'Food Service'
-# MAGIC       WHEN lower(facility_type) RLIKE 'grocery|convenience|dollar|drug store|butcher|meat market|produce|health food|candy|general store|retail food|packaged|market' THEN 'Retail Food'
-# MAGIC       WHEN lower(facility_type) RLIKE 'tavern|bar|liquor|tap room|wine' THEN 'Alcohol Service'
-# MAGIC       WHEN lower(facility_type) RLIKE 'mobile|truck|pushcart|cart|vending|frozen dessert' THEN 'Mobile Food Vendor'
-# MAGIC       WHEN lower(facility_type) RLIKE 'school|college|university|classroom|teaching|culinary school' THEN 'School / Educational Facility'
-# MAGIC       WHEN lower(facility_type) RLIKE 'day care|daycare|after school|children|boys and girls club|kids' THEN 'Childcare Facility'
-# MAGIC       WHEN lower(facility_type) RLIKE 'nursing home|long term care|assisted living|hospital|rehab|adult day' THEN 'Healthcare / Long-Term Care'
-# MAGIC       WHEN lower(facility_type) RLIKE 'church|pantry|soup kitchen|shelter|community|non-profit|charity' THEN 'Religious / Community Facility'
-# MAGIC       WHEN lower(facility_type) RLIKE 'clothing|cell phone|book store|furniture|gift shop|video store|hair salon|nail shop|spa|tobacco|store$' THEN 'Retail (Non-Food)'
-# MAGIC       WHEN lower(facility_type) RLIKE 'gym|fitness|studio|golf|bowling|stadium|youth housing' THEN 'Fitness / Recreation'
-# MAGIC       WHEN lower(facility_type) RLIKE 'commissary|warehouse|storage|distribution|cold storage' THEN 'Commissary / Warehouse'
-# MAGIC       WHEN lower(facility_type) RLIKE 'poultry|slaughter|meat packing|butcher' THEN 'Meat / Poultry Processing'
-# MAGIC       WHEN lower(facility_type) RLIKE 'theater|theatre|music venue|event|concert|wrigley|museum|gallery' THEN 'Entertainment Venue'
-# MAGIC       WHEN lower(facility_type) RLIKE 'hotel|hostel|room service|lounge' THEN 'Hotel / Lodging'
-# MAGIC       WHEN facility_type IS NULL OR trim(facility_type) = '' THEN 'Unknown / Other'
-# MAGIC       ELSE 'Unknown / Other'
-# MAGIC     END AS facility_type_clean
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC )
-# MAGIC SELECT DISTINCT facility_type_clean
-# MAGIC FROM cleaned;
-# MAGIC
+# MAGIC -- =====================================================
+# MAGIC -- DIM FACILITY TYPE (FIXED: preserve raw + cleaned value)
+# MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimFacilityType (
-# MAGIC   d_facility_type_id BIGINT GENERATED ALWAYS AS IDENTITY,
-# MAGIC   facility_type STRING
+# MAGIC   d_facility_type_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   facility_type_raw STRING NOT NULL,
+# MAGIC   facility_type STRING NOT NULL,
+# MAGIC   CONSTRAINT pk_facility_type PRIMARY KEY (d_facility_type_id)
 # MAGIC );
 # MAGIC
-# MAGIC INSERT INTO DimFacilityType (facility_type)
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     CASE
-# MAGIC       WHEN lower(facility_type) RLIKE 'restaurant|rest/|cafe|coffee|bakery|banquet|catering|deli|juice|smoothie|donut|sushi|protein|tea|food booth|food hall|kitchen|dining|hot dog|ice cream|gelato|popcorn|snack|tasting' THEN 'Food Service'
-# MAGIC       WHEN lower(facility_type) RLIKE 'grocery|convenience|dollar|drug store|butcher|meat market|produce|health food|candy|general store|retail food|packaged|market' THEN 'Retail Food'
-# MAGIC       WHEN lower(facility_type) RLIKE 'tavern|bar|liquor|tap room|wine' THEN 'Alcohol Service'
-# MAGIC       WHEN lower(facility_type) RLIKE 'mobile|truck|pushcart|cart|vending|frozen dessert' THEN 'Mobile Food Vendor'
-# MAGIC       WHEN lower(facility_type) RLIKE 'school|college|university|classroom|teaching|culinary school' THEN 'School / Educational Facility'
-# MAGIC       WHEN lower(facility_type) RLIKE 'day care|daycare|after school|children|boys and girls club|kids' THEN 'Childcare Facility'
-# MAGIC       WHEN lower(facility_type) RLIKE 'nursing home|long term care|assisted living|hospital|rehab|adult day' THEN 'Healthcare / Long-Term Care'
-# MAGIC       WHEN lower(facility_type) RLIKE 'church|pantry|soup kitchen|shelter|community|non-profit|charity' THEN 'Religious / Community Facility'
-# MAGIC       WHEN lower(facility_type) RLIKE 'clothing|cell phone|book store|furniture|gift shop|video store|hair salon|nail shop|spa|tobacco|store$' THEN 'Retail (Non-Food)'
-# MAGIC       WHEN lower(facility_type) RLIKE 'gym|fitness|studio|golf|bowling|stadium|youth housing' THEN 'Fitness / Recreation'
-# MAGIC       WHEN lower(facility_type) RLIKE 'commissary|warehouse|storage|distribution|cold storage' THEN 'Commissary / Warehouse'
-# MAGIC       WHEN lower(facility_type) RLIKE 'poultry|slaughter|meat packing|butcher' THEN 'Meat / Poultry Processing'
-# MAGIC       WHEN lower(facility_type) RLIKE 'theater|theatre|music venue|event|concert|wrigley|museum|gallery' THEN 'Entertainment Venue'
-# MAGIC       WHEN lower(facility_type) RLIKE 'hotel|hostel|room service|lounge' THEN 'Hotel / Lodging'
-# MAGIC       WHEN facility_type IS NULL OR trim(facility_type) = '' THEN 'Unknown / Other'
-# MAGIC       ELSE 'Unknown / Other'
-# MAGIC     END AS facility_type_clean
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC )
-# MAGIC SELECT DISTINCT facility_type_clean
-# MAGIC FROM cleaned;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     CASE
-# MAGIC       WHEN risk IS NULL OR trim(risk) = '' THEN 'Unknown'
-# MAGIC       WHEN lower(risk) LIKE '%1%' OR lower(risk) LIKE '%high%' THEN 'Risk 1'
-# MAGIC       WHEN lower(risk) LIKE '%2%' OR lower(risk) LIKE '%medium%' THEN 'Risk 2'
-# MAGIC       WHEN lower(risk) LIKE '%3%' OR lower(risk) LIKE '%low%' THEN 'Risk 3'
-# MAGIC       ELSE 'Unknown'
-# MAGIC     END AS risk_category
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC )
-# MAGIC SELECT DISTINCT risk_category
-# MAGIC FROM cleaned;
+# MAGIC INSERT INTO DimFacilityType (facility_type_raw, facility_type)
+# MAGIC SELECT DISTINCT
+# MAGIC   facility_type AS facility_type_raw,
+# MAGIC   CASE
+# MAGIC     WHEN lower(facility_type) RLIKE 'restaurant|rest/|cafe|coffee|bakery|banquet|catering|deli|juice|smoothie|donut|sushi|protein|tea|food booth|food hall|kitchen|dining|hot dog|ice cream|gelato|popcorn|snack|tasting' THEN 'Food Service'
+# MAGIC     WHEN lower(facility_type) RLIKE 'grocery|convenience|dollar|drug store|butcher|meat market|produce|health food|candy|general store|retail food|packaged|market' THEN 'Retail Food'
+# MAGIC     WHEN lower(facility_type) RLIKE 'tavern|bar|liquor|tap room|wine' THEN 'Alcohol Service'
+# MAGIC     WHEN lower(facility_type) RLIKE 'mobile|truck|pushcart|cart|vending|frozen dessert' THEN 'Mobile Food Vendor'
+# MAGIC     WHEN lower(facility_type) RLIKE 'school|college|university|classroom|teaching|culinary school' THEN 'School / Educational Facility'
+# MAGIC     WHEN lower(facility_type) RLIKE 'day care|daycare|after school|children|boys and girls club|kids' THEN 'Childcare Facility'
+# MAGIC     WHEN lower(facility_type) RLIKE 'nursing home|long term care|assisted living|hospital|rehab|adult day' THEN 'Healthcare / Long-Term Care'
+# MAGIC     WHEN lower(facility_type) RLIKE 'church|pantry|soup kitchen|shelter|community|non-profit|charity' THEN 'Religious / Community Facility'
+# MAGIC     WHEN lower(facility_type) RLIKE 'clothing|cell phone|book store|furniture|gift shop|video store|hair salon|nail shop|spa|tobacco|store$' THEN 'Retail (Non-Food)'
+# MAGIC     WHEN lower(facility_type) RLIKE 'gym|fitness|studio|golf|bowling|stadium|youth housing' THEN 'Fitness / Recreation'
+# MAGIC     WHEN lower(facility_type) RLIKE 'commissary|warehouse|storage|distribution|cold storage' THEN 'Commissary / Warehouse'
+# MAGIC     WHEN lower(facility_type) RLIKE 'poultry|slaughter|meat packing|butcher' THEN 'Meat / Poultry Processing'
+# MAGIC     WHEN lower(facility_type) RLIKE 'theater|theatre|music venue|event|concert|wrigley|museum|gallery' THEN 'Entertainment Venue'
+# MAGIC     WHEN lower(facility_type) RLIKE 'hotel|hostel|room service|lounge' THEN 'Hotel / Lodging'
+# MAGIC     ELSE 'Unknown / Other'
+# MAGIC   END AS facility_type
+# MAGIC FROM students_data.`team3-chicago`.stg_location
+# MAGIC WHERE facility_type IS NOT NULL;
 # MAGIC
+# MAGIC -- =====================================================
+# MAGIC -- DIM RISK (FIXED: preserve raw + cleaned value)
+# MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimRisk (
-# MAGIC   d_risk_id BIGINT GENERATED ALWAYS AS IDENTITY,
-# MAGIC   risk_category STRING NOT NULL
+# MAGIC   d_risk_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   risk_raw STRING NOT NULL,
+# MAGIC   risk_category STRING NOT NULL,
+# MAGIC   CONSTRAINT pk_risk PRIMARY KEY (d_risk_id),
+# MAGIC   CONSTRAINT risk_category_check CHECK (risk_category IN ('Risk 1','Risk 2','Risk 3','Unknown'))
 # MAGIC );
 # MAGIC
-# MAGIC ALTER TABLE DimRisk ADD CONSTRAINT risk_category_check CHECK (risk_category IN ('Risk 1', 'Risk 2', 'Risk 3', 'Unknown'));
+# MAGIC INSERT INTO DimRisk (risk_raw, risk_category)
+# MAGIC SELECT DISTINCT
+# MAGIC   risk AS risk_raw,
+# MAGIC   CASE
+# MAGIC     WHEN risk IS NULL OR trim(risk) = '' THEN 'Unknown'
+# MAGIC     WHEN lower(risk) LIKE '%1%' OR lower(risk) LIKE '%high%' THEN 'Risk 1'
+# MAGIC     WHEN lower(risk) LIKE '%2%' OR lower(risk) LIKE '%medium%' THEN 'Risk 2'
+# MAGIC     WHEN lower(risk) LIKE '%3%' OR lower(risk) LIKE '%low%' THEN 'Risk 3'
+# MAGIC     ELSE 'Unknown'
+# MAGIC   END AS risk_category
+# MAGIC FROM students_data.`team3-chicago`.stg_location;
 # MAGIC
-# MAGIC INSERT INTO DimRisk (risk_category)
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     CASE
-# MAGIC       WHEN risk IS NULL OR trim(risk) = '' THEN 'Unknown'
-# MAGIC       WHEN lower(risk) LIKE '%1%' OR lower(risk) LIKE '%high%' THEN 'Risk 1'
-# MAGIC       WHEN lower(risk) LIKE '%2%' OR lower(risk) LIKE '%medium%' THEN 'Risk 2'
-# MAGIC       WHEN lower(risk) LIKE '%3%' OR lower(risk) LIKE '%low%' THEN 'Risk 3'
-# MAGIC       ELSE 'Unknown'
-# MAGIC     END AS risk_category
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC )
-# MAGIC SELECT DISTINCT risk_category FROM cleaned;
-
-# COMMAND ----------
-
-# MAGIC %sql
+# MAGIC -- =====================================================
+# MAGIC -- DIM BUSINESS (MINOR HARDENING)
+# MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimBusiness (
-# MAGIC   d_business_id BIGINT GENERATED ALWAYS AS IDENTITY,
+# MAGIC   d_business_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
 # MAGIC   dba_name STRING,
 # MAGIC   aka_name STRING,
-# MAGIC   license_number STRING
+# MAGIC   license_number STRING NOT NULL,
+# MAGIC   CONSTRAINT pk_business PRIMARY KEY (d_business_id)
 # MAGIC );
 # MAGIC
 # MAGIC INSERT INTO DimBusiness (dba_name, aka_name, license_number)
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     /* Clean DBA name */
-# MAGIC     CASE
-# MAGIC       WHEN trim(dba_name) = '' THEN NULL
-# MAGIC       ELSE initcap(trim(dba_name))
-# MAGIC     END AS dba_name_clean,
-# MAGIC
-# MAGIC     /* Clean AKA name */
-# MAGIC     CASE
-# MAGIC       WHEN trim(aka_name) = '' THEN NULL
-# MAGIC       ELSE initcap(trim(aka_name))
-# MAGIC     END AS aka_name_clean,
-# MAGIC
-# MAGIC     /* Clean license number */
-# MAGIC     CASE
-# MAGIC       WHEN trim(license_number) = '' THEN NULL
-# MAGIC       ELSE trim(license_number)
-# MAGIC     END AS license_number_clean
-# MAGIC   FROM students_data.`team3-chicago`.stg_location
-# MAGIC ),
-# MAGIC validated AS (
-# MAGIC   SELECT
-# MAGIC     dba_name_clean,
-# MAGIC     aka_name_clean,
-# MAGIC     license_number_clean
-# MAGIC   FROM cleaned
-# MAGIC   WHERE license_number_clean IS NOT NULL
-# MAGIC )
 # MAGIC SELECT DISTINCT
-# MAGIC   dba_name_clean,
-# MAGIC   aka_name_clean,
-# MAGIC   license_number_clean
-# MAGIC FROM validated;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     TRY_CAST(inspection_date AS DATE) AS inspection_date_clean
-# MAGIC   FROM students_data.`team3-chicago`.stg_inspection
-# MAGIC ),
-# MAGIC validated AS (
-# MAGIC   SELECT
-# MAGIC     inspection_date_clean
-# MAGIC   FROM cleaned
-# MAGIC   WHERE inspection_date_clean IS NOT NULL
-# MAGIC     AND inspection_date_clean >= '2000-01-01'
-# MAGIC     AND inspection_date_clean <= current_date()
-# MAGIC )
-# MAGIC SELECT DISTINCT inspection_date_clean
-# MAGIC FROM validated;
+# MAGIC   initcap(trim(dba_name)) AS dba_name,
+# MAGIC   initcap(trim(aka_name)) AS aka_name,
+# MAGIC   trim(license_number) AS license_number
+# MAGIC FROM students_data.`team3-chicago`.stg_location
+# MAGIC WHERE license_number IS NOT NULL;
 # MAGIC
+# MAGIC -- =====================================================
+# MAGIC -- DIM DATE (FIXED: real date dimension)
+# MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimDate (
-# MAGIC   d_date_id BIGINT GENERATED ALWAYS AS IDENTITY,
-# MAGIC   date DATE NOT NULL
+# MAGIC   d_date_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   date DATE NOT NULL,
+# MAGIC   year INT,
+# MAGIC   month INT,
+# MAGIC   day INT,
+# MAGIC   day_of_week STRING,
+# MAGIC   CONSTRAINT pk_date PRIMARY KEY (d_date_id)
 # MAGIC );
 # MAGIC
-# MAGIC INSERT INTO DimDate (date)
-# MAGIC WITH cleaned AS (
-# MAGIC   SELECT
-# MAGIC     TRY_CAST(inspection_date AS DATE) AS inspection_date_clean
+# MAGIC INSERT INTO DimDate (date, year, month, day, day_of_week)
+# MAGIC SELECT DISTINCT
+# MAGIC   d,
+# MAGIC   year(d),
+# MAGIC   month(d),
+# MAGIC   day(d),
+# MAGIC   date_format(d, 'EEEE')
+# MAGIC FROM (
+# MAGIC   SELECT TRY_CAST(inspection_date AS DATE) AS d
 # MAGIC   FROM students_data.`team3-chicago`.stg_inspection
-# MAGIC ),
-# MAGIC validated AS (
-# MAGIC   SELECT
-# MAGIC     inspection_date_clean
-# MAGIC   FROM cleaned
-# MAGIC   WHERE inspection_date_clean IS NOT NULL
-# MAGIC     AND inspection_date_clean >= '2000-01-01'
-# MAGIC     AND inspection_date_clean <= current_date()
 # MAGIC )
-# MAGIC SELECT DISTINCT inspection_date_clean
-# MAGIC FROM validated;
-
-# COMMAND ----------
-
-# MAGIC %sql
+# MAGIC WHERE d IS NOT NULL
+# MAGIC   AND d >= '2000-01-01'
+# MAGIC   AND d <= current_date();
+# MAGIC
+# MAGIC -- =====================================================
+# MAGIC -- DIM VIOLATION (FIXED: one row per violation code)
+# MAGIC -- =====================================================
 # MAGIC CREATE OR REPLACE TABLE DimViolation (
-# MAGIC   d_violation_id BIGINT GENERATED ALWAYS AS IDENTITY,
-# MAGIC   violation_code STRING,
-# MAGIC   comment STRING
+# MAGIC   d_violation_id BIGINT NOT NULL GENERATED ALWAYS AS IDENTITY,
+# MAGIC   violation_code STRING NOT NULL,
+# MAGIC   CONSTRAINT pk_violation PRIMARY KEY (d_violation_id)
 # MAGIC );
 # MAGIC
-# MAGIC INSERT INTO DimViolation (violation_code, comment)
-# MAGIC WITH exploded AS (
-# MAGIC   SELECT
-# MAGIC     explode(split(violations, '\\|')) AS single_violation
-# MAGIC   FROM students_data.`team3-chicago`.stg_inspection
-# MAGIC   WHERE violations IS NOT NULL AND trim(violations) != ''
-# MAGIC ),
-# MAGIC parsed AS (
-# MAGIC   SELECT
-# MAGIC     trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) AS violation_code,
-# MAGIC     trim(regexp_extract(single_violation, '- Comments:\\s*(.*)', 1)) AS comment
-# MAGIC   FROM exploded
-# MAGIC )
-# MAGIC SELECT DISTINCT violation_code, comment
-# MAGIC FROM parsed
-# MAGIC WHERE violation_code != '';
+# MAGIC INSERT INTO DimViolation (violation_code)
+# MAGIC SELECT DISTINCT
+# MAGIC   trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) AS violation_code
+# MAGIC FROM students_data.`team3-chicago`.stg_inspection
+# MAGIC LATERAL VIEW explode(split(violations, '\\|')) viol AS single_violation
+# MAGIC WHERE violations IS NOT NULL
+# MAGIC   AND trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) != '';
