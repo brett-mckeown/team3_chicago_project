@@ -2,6 +2,8 @@
 USE CATALOG students_data;
 USE SCHEMA `team3-chicago`;
 
+import dlt
+
 -- COMMAND ----------
 
 CREATE OR REPLACE TABLE DimLocation (
@@ -35,17 +37,42 @@ FROM
   students_data.`team3-chicago`.stg_location;
 
 -- COMMAND ----------
+WITH cleaned AS (
+  SELECT
+    CASE
+      WHEN risk IS NULL OR trim(risk) = '' THEN 'Unknown'
+      WHEN lower(risk) LIKE '%1%' OR lower(risk) LIKE '%high%' THEN 'Risk 1'
+      WHEN lower(risk) LIKE '%2%' OR lower(risk) LIKE '%medium%' THEN 'Risk 2'
+      WHEN lower(risk) LIKE '%3%' OR lower(risk) LIKE '%low%' THEN 'Risk 3'
+      ELSE 'Unknown'
+    END AS risk_category
+  FROM students_data.`team3-chicago`.stg_location
+)
+SELECT DISTINCT risk_category
+FROM cleaned;
+
 
 CREATE OR REPLACE TABLE DimRisk (
   d_risk_id BIGINT GENERATED ALWAYS AS IDENTITY,
-  risk_category STRING
+  risk_category STRING NOT NULL
+  CONSTRAINT risk_category_check CHECK (risk_category IN ('Risk 1', 'Risk 2', 'Risk 3', 'Unknown'))
+  CONSTRAINT risk_category_unique UNIQUE (risk_category)
 );
 
 INSERT INTO DimRisk (risk_category)
-SELECT
-  risk
-FROM
-  students_data.`team3-chicago`.stg_location;
+WITH cleaned AS (
+  SELECT
+    CASE
+      WHEN risk IS NULL OR trim(risk) = '' THEN 'Unknown'
+      WHEN lower(risk) LIKE '%1%' OR lower(risk) LIKE '%high%' THEN 'Risk 1'
+      WHEN lower(risk) LIKE '%2%' OR lower(risk) LIKE '%medium%' THEN 'Risk 2'
+      WHEN lower(risk) LIKE '%3%' OR lower(risk) LIKE '%low%' THEN 'Risk 3'
+      ELSE 'Unknown'
+    END AS risk_category
+  FROM students_data.`team3-chicago`.stg_location
+)
+SELECT DISTINCT risk_category FROM cleaned;
+
 
 -- COMMAND ----------
 
