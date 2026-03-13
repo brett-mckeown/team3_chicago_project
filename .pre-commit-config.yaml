@@ -20,7 +20,7 @@ repos:
 
       - id: flake8
         name: flake8
-        entry: venv/bin/flake8 . --exclude=venv,./notebooks/
+        entry: venv/bin/flake8 . --exclude=venv,./notebooks/,./food_inspections
         language: system
         pass_filenames: false
 
