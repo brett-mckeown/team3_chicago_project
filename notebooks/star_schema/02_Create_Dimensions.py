@@ -40,7 +40,6 @@
 # MAGIC SELECT DISTINCT *
 # MAGIC FROM validated;
 # MAGIC
-# MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimLocation (
 # MAGIC   d_location_id BIGINT GENERATED ALWAYS AS IDENTITY,
 # MAGIC   address STRING,
@@ -49,7 +48,6 @@
 # MAGIC   zip STRING
 # MAGIC );
 # MAGIC
-# MAGIC %sql
 # MAGIC INSERT INTO DimLocation (address, city, state, zip)
 # MAGIC WITH base AS (
 # MAGIC   SELECT
@@ -131,13 +129,11 @@
 # MAGIC SELECT DISTINCT facility_type_clean
 # MAGIC FROM cleaned;
 # MAGIC
-# MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimFacilityType (
 # MAGIC   d_facility_type_id BIGINT GENERATED ALWAYS AS IDENTITY,
 # MAGIC   facility_type STRING
 # MAGIC );
 # MAGIC
-# MAGIC %sql
 # MAGIC INSERT INTO DimFacilityType (facility_type)
 # MAGIC WITH cleaned AS (
 # MAGIC   SELECT
@@ -239,13 +235,11 @@
 # MAGIC SELECT DISTINCT inspection_date_clean
 # MAGIC FROM validated;
 # MAGIC
-# MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimDate (
 # MAGIC   d_date_id BIGINT GENERATED ALWAYS AS IDENTITY,
 # MAGIC   date DATE NOT NULL
 # MAGIC );
 # MAGIC
-# MAGIC %sql
 # MAGIC INSERT INTO DimDate (date)
 # MAGIC WITH cleaned AS (
 # MAGIC   SELECT
