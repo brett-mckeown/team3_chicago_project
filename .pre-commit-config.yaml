@@ -1,26 +1,29 @@
+default_stages: [commit]
+exclude: '^(venv|source)/'
 repos:
+  - repo: https://github.com/psf/black
+    rev: 25.11.0
+    hooks:
+      - id: black
+        args: [--line-length=120]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        args: [--exclude=venv,source,./notebooks/star_schema/01_Create_Staging.py]
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
   - repo: local
     hooks:
       - id: gitleaks
         name: gitleaks
         entry: gitleaks protect --staged
-        language: system
-        pass_filenames: false
-
-      - id: detect-secrets
-        name: detect-secrets
-        entry: venv/bin/detect-secrets-hook --baseline .secrets.baseline
-        language: system
-
-      - id: black
-        name: black
-        entry: venv/bin/black --check .
-        language: system
-        pass_filenames: false
-
-      - id: flake8
-        name: flake8
-        entry: venv/bin/flake8 . --exclude=venv,./notebooks/star_schema/01_Create_Staging.py
         language: system
         pass_filenames: false
 
