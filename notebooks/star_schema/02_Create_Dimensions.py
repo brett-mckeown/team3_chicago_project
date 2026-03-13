@@ -15,6 +15,8 @@
 # MAGIC   city STRING,
 # MAGIC   state STRING,
 # MAGIC   zip STRING,
+# MAGIC   latitude DOUBLE,  
+# MAGIC   longitude DOUBLE,
 # MAGIC   CONSTRAINT pk_location PRIMARY KEY (d_location_id)
 # MAGIC );
 # MAGIC
@@ -28,6 +30,8 @@
 # MAGIC FROM students_data.`team3-chicago`.stg_location
 # MAGIC WHERE license_number IS NOT NULL
 # MAGIC   AND regexp_extract(zip, '([0-9]{5})', 1) IS NOT NULL;
+# MAGIC   AND latitude IS NOT NULL
+# MAGIC   AND longitude IS NOT NULL;
 # MAGIC
 # MAGIC -- =====================================================
 # MAGIC -- DIM FACILITY TYPE (FIXED: preserve raw + cleaned value)
