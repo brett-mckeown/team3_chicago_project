@@ -1,4 +1,4 @@
-default_stages: [commit]
+default_stages: [pre-commit]
 exclude: '^(venv|source)/'
 repos:
   - repo: https://github.com/psf/black
@@ -6,12 +6,13 @@ repos:
     hooks:
       - id: black
         args: [--line-length=120]
+        exclude: '^notebooks/star_schema/01_Create_Staging\.py$'
 
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
     hooks:
       - id: flake8
-        args: [--exclude=venv,source,./notebooks/star_schema/01_Create_Staging.py]
+        exclude: '^notebooks/star_schema/01_Create_Staging\.py$'
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
