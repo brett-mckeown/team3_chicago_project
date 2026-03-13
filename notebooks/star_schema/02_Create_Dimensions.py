@@ -6,6 +6,41 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     /* Clean address */
+# MAGIC     initcap(trim(address)) AS address_clean,
+# MAGIC
+# MAGIC     /* Clean city */
+# MAGIC     initcap(trim(city)) AS city_clean,
+# MAGIC
+# MAGIC     /* Clean state (force IL, drop invalid) */
+# MAGIC     CASE
+# MAGIC       WHEN upper(trim(state)) = 'IL' THEN 'IL'
+# MAGIC       ELSE NULL
+# MAGIC     END AS state_clean,
+# MAGIC
+# MAGIC     /* Clean ZIP: extract first 5 digits only */
+# MAGIC     regexp_extract(zip, '([0-9]{5})', 1) AS zip_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_location
+# MAGIC ),
+# MAGIC validated AS (
+# MAGIC   SELECT
+# MAGIC     address_clean,
+# MAGIC     city_clean,
+# MAGIC     state_clean,
+# MAGIC     zip_clean
+# MAGIC   FROM cleaned
+# MAGIC   WHERE address_clean IS NOT NULL
+# MAGIC     AND city_clean IS NOT NULL
+# MAGIC     AND state_clean IS NOT NULL
+# MAGIC     AND zip_clean IS NOT NULL
+# MAGIC     AND length(zip_clean) = 5
+# MAGIC )
+# MAGIC SELECT DISTINCT *
+# MAGIC FROM validated;
+
+# MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimLocation (
 # MAGIC   d_location_id BIGINT GENERATED ALWAYS AS IDENTITY,
 # MAGIC   address STRING,
@@ -13,15 +48,35 @@
 # MAGIC   state STRING,
 # MAGIC   zip STRING
 # MAGIC );
-# MAGIC
+
+# MAGIC %sql
 # MAGIC INSERT INTO DimLocation (address, city, state, zip)
-# MAGIC SELECT
-# MAGIC   address,
-# MAGIC   city,
-# MAGIC   state,
-# MAGIC   zip
-# MAGIC FROM
-# MAGIC   students_data.`team3-chicago`.stg_location;
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     initcap(trim(address)) AS address_clean,
+# MAGIC     initcap(trim(city)) AS city_clean,
+# MAGIC     CASE
+# MAGIC       WHEN upper(trim(state)) = 'IL' THEN 'IL'
+# MAGIC       ELSE NULL
+# MAGIC     END AS state_clean,
+# MAGIC     regexp_extract(zip, '([0-9]{5})', 1) AS zip_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_location
+# MAGIC ),
+# MAGIC validated AS (
+# MAGIC   SELECT
+# MAGIC     address_clean,
+# MAGIC     city_clean,
+# MAGIC     state_clean,
+# MAGIC     zip_clean
+# MAGIC   FROM cleaned
+# MAGIC   WHERE address_clean IS NOT NULL
+# MAGIC     AND city_clean IS NOT NULL
+# MAGIC     AND state_clean IS NOT NULL
+# MAGIC     AND zip_clean IS NOT NULL
+# MAGIC     AND length(zip_clean) = 5
+# MAGIC )
+# MAGIC SELECT DISTINCT address_clean, city_clean, state_clean, zip_clean
+# MAGIC FROM validated;
 
 # COMMAND ----------
 
