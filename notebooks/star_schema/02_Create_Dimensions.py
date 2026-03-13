@@ -51,7 +51,7 @@
 # MAGIC )
 # MAGIC SELECT DISTINCT facility_type_clean
 # MAGIC FROM cleaned;
-
+# MAGIC
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimFacilityType (
 # MAGIC   d_facility_type_id BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -154,3 +154,30 @@
 # MAGIC   inspection_date
 # MAGIC FROM
 # MAGIC   students_data.`team3-chicago`.stg_inspection;
+
+# COMMAND ----------
+
+# DBTITLE 1,Create DimViolation
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE TABLE DimViolation (
+# MAGIC   d_violation_id BIGINT GENERATED ALWAYS AS IDENTITY,
+# MAGIC   violation_code STRING,
+# MAGIC   comment STRING
+# MAGIC );
+# MAGIC
+# MAGIC INSERT INTO DimViolation (violation_code, comment)
+# MAGIC WITH exploded AS (
+# MAGIC   SELECT
+# MAGIC     explode(split(violations, '\\|')) AS single_violation
+# MAGIC   FROM students_data.`team3-chicago`.stg_inspection
+# MAGIC   WHERE violations IS NOT NULL AND trim(violations) != ''
+# MAGIC ),
+# MAGIC parsed AS (
+# MAGIC   SELECT
+# MAGIC     trim(regexp_extract(single_violation, '^\\s*(\\d+)\\.', 1)) AS violation_code,
+# MAGIC     trim(regexp_extract(single_violation, '- Comments:\\s*(.*)', 1)) AS comment
+# MAGIC   FROM exploded
+# MAGIC )
+# MAGIC SELECT DISTINCT violation_code, comment
+# MAGIC FROM parsed
+# MAGIC WHERE violation_code != '';
