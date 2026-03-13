@@ -2,8 +2,6 @@
 USE CATALOG students_data;
 USE SCHEMA `team3-chicago`;
 
-import dlt
-
 -- COMMAND ----------
 
 CREATE OR REPLACE TABLE DimLocation (
