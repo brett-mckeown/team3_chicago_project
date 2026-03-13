@@ -76,18 +76,17 @@
 # MAGIC
 # MAGIC corrected AS (
 # MAGIC   SELECT
-# MAGIC     /* Apply spelling corrections if lookup table exists */
-# MAGIC     COALESCE(
-# MAGIC       REPLACE(address_step1, sc.wrong, sc.correct),
-# MAGIC       address_step1
-# MAGIC     ) AS address_clean,
+# MAGIC     /* Choose the most standardized address version */
+# MAGIC     address_step1 AS address_clean,
 # MAGIC
+# MAGIC     /* Normalize city */
 # MAGIC     CASE WHEN lower(city_step1) LIKE '%chicago%' THEN 'Chicago' ELSE NULL END AS city_clean,
+# MAGIC
+# MAGIC     /* Normalize state */
 # MAGIC     CASE WHEN state_step1 = 'IL' THEN 'IL' ELSE NULL END AS state_clean,
+# MAGIC
 # MAGIC     zip_raw AS zip_clean
-# MAGIC   FROM normalized n
-# MAGIC   LEFT JOIN street_corrections sc
-# MAGIC     ON n.address_step1 LIKE CONCAT('%', sc.wrong, '%')
+# MAGIC   FROM normalized
 # MAGIC ),
 # MAGIC
 # MAGIC validated AS (
