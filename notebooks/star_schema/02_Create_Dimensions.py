@@ -144,13 +144,42 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     TRY_CAST(inspection_date AS DATE) AS inspection_date_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_inspection
+# MAGIC ),
+# MAGIC validated AS (
+# MAGIC   SELECT
+# MAGIC     inspection_date_clean
+# MAGIC   FROM cleaned
+# MAGIC   WHERE inspection_date_clean IS NOT NULL
+# MAGIC     AND inspection_date_clean >= '2000-01-01'
+# MAGIC     AND inspection_date_clean <= current_date()
+# MAGIC )
+# MAGIC SELECT DISTINCT inspection_date_clean
+# MAGIC FROM validated;
+
+# MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE DimDate (
 # MAGIC   d_date_id BIGINT GENERATED ALWAYS AS IDENTITY,
-# MAGIC   date DATE
+# MAGIC   date DATE NOT NULL
 # MAGIC );
-# MAGIC
+
+# MAGIC %sql
 # MAGIC INSERT INTO DimDate (date)
-# MAGIC SELECT
-# MAGIC   inspection_date
-# MAGIC FROM
-# MAGIC   students_data.`team3-chicago`.stg_inspection;
+# MAGIC WITH cleaned AS (
+# MAGIC   SELECT
+# MAGIC     TRY_CAST(inspection_date AS DATE) AS inspection_date_clean
+# MAGIC   FROM students_data.`team3-chicago`.stg_inspection
+# MAGIC ),
+# MAGIC validated AS (
+# MAGIC   SELECT
+# MAGIC     inspection_date_clean
+# MAGIC   FROM cleaned
+# MAGIC   WHERE inspection_date_clean IS NOT NULL
+# MAGIC     AND inspection_date_clean >= '2000-01-01'
+# MAGIC     AND inspection_date_clean <= current_date()
+# MAGIC )
+# MAGIC SELECT DISTINCT inspection_date_clean
+# MAGIC FROM validated;
